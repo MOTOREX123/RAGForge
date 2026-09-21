@@ -22,7 +22,8 @@ class HybridRetriever:
         query: str,
         k: int = 5,
         candidate_k: int = 10,
-        rrf_k: int = 60
+        rrf_k: int = 60,
+        faiss_results: list[dict] | None = None
     ) -> list[dict]:
         """
         Retrieve candidates using both FAISS and BM25,
@@ -33,15 +34,16 @@ class HybridRetriever:
         # 1. FAISS semantic retrieval
         # -------------------------------------------------
 
-        from utils.embeddings import model
+        if faiss_results is None:
+            from utils.embeddings import model
+            
+            query_embedding = model.encode(query)
 
-        query_embedding = model.encode(query)
-
-        faiss_results = self.vector_db.search(
-            query_embedding,
-            k=candidate_k
-        )
-
+            faiss_results = self.vector_db.search(
+        query_embedding,
+        k=candidate_k
+    )
+            
         # -------------------------------------------------
         # 2. BM25 keyword retrieval
         # -------------------------------------------------

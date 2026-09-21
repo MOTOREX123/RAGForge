@@ -33,6 +33,6 @@ def retrieve_chunks(
     ]
 
     # Keep the strongest results
-    filtered_results = filtered_results[:5]
+    filtered_results = filtered_results[:k]
 
     return filtered_results

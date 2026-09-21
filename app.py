@@ -304,7 +304,8 @@ def chat(request: ChatRequest):
         candidates = hybrid_retriever.search(
             message,
             k=10,
-            candidate_k=10
+            candidate_k=10,
+            faiss_results=route["results"]
         )
 
         # -----------------------------------------
