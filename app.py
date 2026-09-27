@@ -36,7 +36,7 @@ from utils.hybrid_retriever import HybridRetriever
 from utils.reranker import Reranker
 from utils.context_selector import select_context
 
-from utils.chunk_expander import expand_neighbors
+
 from utils.conversation import ConversationMemory
 from utils.query_resolver import resolve_query
 
@@ -296,10 +296,6 @@ def chat(request: ChatRequest):
             request.conversation_id
         )
 
-        history = memory.get_history(
-            request.conversation_id
-        )
-
         resolved_message = resolve_query(
             message,
             history
@@ -348,20 +344,7 @@ def chat(request: ChatRequest):
         )
 
         # --------------------------------------------------------
-        # 4. Expand context with neighboring chunks
-        # --------------------------------------------------------
-        if results:
-            expanded_results = expand_neighbors(
-                vector_db,
-                results[:3],
-                before=0,
-                after=3
-            )
-        else:
-            expanded_results = []
-
-        # --------------------------------------------------------
-        # 5. Select Context
+        # 4. Select Context
         # --------------------------------------------------------
         selected_results = select_context(
             results,
@@ -370,7 +353,7 @@ def chat(request: ChatRequest):
         )
 
         # --------------------------------------------------------
-        # 6. Build Context
+        # 5. Build Context
         # --------------------------------------------------------
         context = build_context(selected_results)
 
@@ -378,7 +361,7 @@ def chat(request: ChatRequest):
         # 6. Generate Answer
         # --------------------------------------------------------
         answer = generate_ollama_answer(
-            message,
+            resolved_message,
             context
         )
        
