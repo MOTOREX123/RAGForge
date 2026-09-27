@@ -34,6 +34,11 @@ from utils.web_search import web_search
 
 from utils.hybrid_retriever import HybridRetriever
 from utils.reranker import Reranker
+from utils.context_selector import select_context
+
+from utils.chunk_expander import expand_neighbors
+from utils.conversation import ConversationMemory
+from utils.query_resolver import resolve_query
 
 
 # ==========================================================
@@ -72,7 +77,7 @@ async def lifespan(app: FastAPI):
         f"Embedding dimension: "
         f"{app.state.vector_db.dimension}"
     )
-
+    app.state.conversation_memory = ConversationMemory(max_turns=5)
     # -----------------------------------------
     # 2. Build Hybrid Retriever
     # -----------------------------------------
@@ -140,7 +145,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., description="User's chat message.")
     conversation_id: Optional[str] = Field(
         default=None,
-        description="Optional conversation identifier (not yet used for memory).",
+      description="Optional conversation identifier used for conversation-aware RAG.",
     )
 
 
@@ -272,108 +277,163 @@ def chat(request: ChatRequest):
             detail="Vector store is not loaded. Server may still be starting up.",
         )
 
-    # ------------------------------------------------------
-    # ROUTING (unchanged logic from utils/router.py)
-    # ------------------------------------------------------
-    try:
-        route = route_query(
-            vector_db,
-            message,
-            k=8,
-            threshold=0.50,
+    # ============================================================
+    # CONVERSATION-AWARE QUERY RESOLUTION
+    # ============================================================
+
+    # Start with the original user message.
+    # If there is no conversation history, this remains unchanged.
+    resolved_message = message
+
+    # ------------------------------------------------------------
+    # 1. Get conversation history
+    # ------------------------------------------------------------
+    if request.conversation_id:
+
+        memory = app.state.conversation_memory
+
+        history = memory.get_history(
+            request.conversation_id
         )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Routing failed: {exc}",
-        ) from exc
 
-    # ------------------------------------------------------
-    # LOCAL ROUTE
-    # ------------------------------------------------------
+        history = memory.get_history(
+            request.conversation_id
+        )
 
+        resolved_message = resolve_query(
+            message,
+            history
+        )
+
+
+    # ============================================================
+    # ROUTING
+    # ============================================================
+
+    route = route_query(
+        vector_db,
+        resolved_message,
+        k=8,
+        threshold=0.50,
+    )
+
+    # ============================================================
+    # LOCAL RAG ROUTE
+    # ============================================================
     if route["source"] == "local":
 
+        # --------------------------------------------------------
+        # 1. Get retrieval and reranking components
+        # --------------------------------------------------------
         hybrid_retriever = app.state.hybrid_retriever
         reranker = app.state.reranker
-
-        # -----------------------------------------
-        # Step 1: Hybrid retrieval
-        # -----------------------------------------
-
+	
+	# --------------------------------------------------------
+        # 2. Hybrid Retrieval
+        # --------------------------------------------------------
         candidates = hybrid_retriever.search(
-            message,
+            resolved_message,
             k=10,
             candidate_k=10,
             faiss_results=route["results"]
         )
 
-        # -----------------------------------------
-        # Step 2: Rerank candidates
-        # -----------------------------------------
-
+        # --------------------------------------------------------
+        # 3. Reranking
+        # --------------------------------------------------------
         results = reranker.rerank(
-            message,
+            resolved_message,
             candidates,
             top_k=5
         )
 
-        # -----------------------------------------
-        # Step 3: Build context
-        # -----------------------------------------
+        # --------------------------------------------------------
+        # 4. Expand context with neighboring chunks
+        # --------------------------------------------------------
+        if results:
+            expanded_results = expand_neighbors(
+                vector_db,
+                results[:3],
+                before=0,
+                after=3
+            )
+        else:
+            expanded_results = []
 
-        context = build_context(results)
+        # --------------------------------------------------------
+        # 5. Select Context
+        # --------------------------------------------------------
+        selected_results = select_context(
+            results,
+            max_chunks=3,
+            min_score=0.0
+        )
 
-        # -----------------------------------------
-        # Step 4: Generate answer
-        # -----------------------------------------
+        # --------------------------------------------------------
+        # 6. Build Context
+        # --------------------------------------------------------
+        context = build_context(selected_results)
 
-        try:
-            answer = generate_ollama_answer(
+        # --------------------------------------------------------
+        # 6. Generate Answer
+        # --------------------------------------------------------
+        answer = generate_ollama_answer(
+            message,
+            context
+        )
+       
+        # --------------------------------------------------------
+        # Save Conversation Turn
+        # --------------------------------------------------------
+        if request.conversation_id:
+            app.state.conversation_memory.add_turn(
+                request.conversation_id,
                 message,
-                context
+                answer
             )
 
-        except requests.RequestException as exc:
-            raise HTTPException(
-                status_code=503,
-                detail=f"Ollama is unavailable: {exc}",
-            ) from exc
-
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Unexpected error generating answer: {exc}",
-            ) from exc
-
-        # -----------------------------------------
-        # Step 5: Return response
-        # -----------------------------------------
-
+        # --------------------------------------------------------
+        # 7. Return API Response
+        #    Send answer, route information, model information,
+        #    and document citations back to the frontend.
+        # --------------------------------------------------------
         return ChatResponse(
             answer=answer,
             route="local",
             provider="ollama",
             model=MODEL_NAME,
-            citations=local_results_to_citations(results),
+            citations=local_results_to_citations(selected_results),
         )
 
     # ------------------------------------------------------
     # GENERAL ROUTE
     # ------------------------------------------------------
     if route["source"] == "general":
+
         try:
-            answer = generate_general_answer(message)
+            answer = generate_general_answer(resolved_message)
+
         except requests.RequestException as exc:
             raise HTTPException(
                 status_code=503,
                 detail=f"Ollama is unavailable: {exc}",
             ) from exc
+        
         except Exception as exc:
             raise HTTPException(
                 status_code=500,
                 detail=f"Unexpected error generating answer: {exc}",
             ) from exc
+
+        # --------------------------------------------------------
+        # Save Conversation Turn
+        # --------------------------------------------------------
+        if request.conversation_id:
+            app.state.conversation_memory.add_turn(
+                request.conversation_id,
+                message,
+                answer
+            )
 
         return ChatResponse(
             answer=answer,
@@ -395,13 +455,23 @@ def chat(request: ChatRequest):
             detail=f"Web search (Gemini) failed: {exc}",
         ) from exc
 
-        return ChatResponse(
-            answer=result["answer"],
-            route="web",
-            provider="gemini",
-            model="gemini-3.6-flash",
-            citations=web_sources_to_citations(result.get("sources", [])),
+    # --------------------------------------------------------
+    # Save Conversation Turn
+    # --------------------------------------------------------
+    if request.conversation_id:
+        app.state.conversation_memory.add_turn(
+            request.conversation_id,
+            message,
+            result["answer"]
         )
+
+    return ChatResponse(
+        answer=result["answer"],
+        route="web",
+        provider="gemini",
+        model="gemini-3.6-flash",
+        citations=web_sources_to_citations(result.get("sources", [])),
+    )
 
 
 # ==========================================================
