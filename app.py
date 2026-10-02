@@ -360,10 +360,21 @@ def chat(request: ChatRequest):
         # --------------------------------------------------------
         # 6. Generate Answer
         # --------------------------------------------------------
-        answer = generate_ollama_answer(
-            resolved_message,
-            context
-        )
+        try:
+            answer = generate_ollama_answer(
+                resolved_message,
+                context
+            )
+        except requests.RequestException as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=f"Ollama is unavailable: {exc}",
+            ) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Unexpected error generating answer: {exc}",
+            ) from exc
        
         # --------------------------------------------------------
         # Save Conversation Turn
