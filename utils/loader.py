@@ -1,11 +1,91 @@
 from pathlib import Path
 from pypdf import PdfReader
 from typing import List, Dict
+import tempfile
+import os
+
+try:
+    import pypdfium2 as pdfium
+    PYPODFIUM2_AVAILABLE = True
+except ImportError:
+    PYPODFIUM2_AVAILABLE = False
+
+# Global PaddleOCR instance (lazy-loaded)
+_paddleocr_instance = None
+
+
+def _get_paddleocr():
+    """Lazy-load PaddleOCR instance."""
+    global _paddleocr_instance
+    if _paddleocr_instance is None:
+        # Disable model source check and oneDNN for better compatibility
+        os.environ.setdefault('PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK', 'True')
+        os.environ.setdefault('PADDLE_DISABLE_ONEDNN', '1')
+        from paddleocr import PaddleOCR
+        _paddleocr_instance = PaddleOCR(use_textline_orientation=True, lang='en', enable_mkldnn=False)
+    return _paddleocr_instance
+
+
+def _ocr_pdf_page(pdf_path: str, page_number: int) -> str:
+    """
+    Render a PDF page to image and run PaddleOCR.
+    
+    Args:
+        pdf_path: Path to the PDF file.
+        page_number: 1-based page number.
+    
+    Returns:
+        Extracted text from OCR, or empty string if OCR fails.
+    """
+    if not PYPODFIUM2_AVAILABLE:
+        return ""
+    
+    temp_image_path = None
+    try:
+        pdf = pdfium.PdfDocument(pdf_path)
+        page = pdf[page_number - 1]  # 0-based index
+        
+        # Render at 150 DPI for faster OCR on CPU
+        bitmap = page.render(scale=150/72)
+        pil_image = bitmap.to_pil()
+        
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+            temp_image_path = tmp.name
+            pil_image.save(temp_image_path)
+        
+        # Run OCR
+        ocr = _get_paddleocr()
+        result = ocr.predict(temp_image_path)
+        
+        # Extract text from result (OCRResult is dict-like)
+        texts = []
+        if result and len(result) > 0:
+            res = result[0]
+            if isinstance(res, dict) or hasattr(res, 'keys'):
+                # Dict-style access for OCRResult
+                rec_texts = res.get('rec_texts', []) if hasattr(res, 'get') else res['rec_texts']
+                if rec_texts:
+                    texts.extend(rec_texts)
+        
+        return "\n".join(texts)
+    
+    except Exception as e:
+        print(f"[LOADER] OCR failed for page {page_number}: {e}")
+        return ""
+    finally:
+        # Clean up temp image
+        if temp_image_path and os.path.exists(temp_image_path):
+            try:
+                os.unlink(temp_image_path)
+            except:
+                pass
 
 
 def load_pdf_pages(pdf_path: str) -> List[Dict]:
     """
     Extract text from a PDF while preserving useful metadata.
+    Falls back to PaddleOCR for scanned/image-only pages.
 
     Returns:
         A list of dictionaries, one for each non-empty page.
@@ -17,26 +97,84 @@ def load_pdf_pages(pdf_path: str) -> List[Dict]:
 
     source_path = Path(pdf_path)
 
+    # First pass: try normal text extraction
+    total_text_length = 0
+    extracted_pages = []
+    
     for page_number, page in enumerate(reader.pages, start=1):
-
         page_text = page.extract_text()
 
         if not page_text:
+            extracted_pages.append((page_number, ""))
             continue
 
         page_text = page_text.strip()
 
         if not page_text:
+            extracted_pages.append((page_number, ""))
             continue
 
-        pages.append({
-            "text": page_text,
-            "page": page_number,
-            "source": source_path.name,
-            "document_type": "pdf"
-        })
+        total_text_length += len(page_text)
+        extracted_pages.append((page_number, page_text))
 
-    return pages
+    # Check if we have sufficient text overall
+    # Threshold: at least 100 characters total, or at least 1 page with text
+    has_sufficient_text = total_text_length >= 100 or any(text for _, text in extracted_pages if text)
+    
+    if has_sufficient_text:
+        print(f"[LOADER] PDF text extraction: {total_text_length} characters from {len([p for p in extracted_pages if p[1]])} pages")
+        for page_number, page_text in extracted_pages:
+            if page_text:
+                pages.append({
+                    "text": page_text,
+                    "page": page_number,
+                    "source": source_path.name,
+                    "document_type": "pdf"
+                })
+        return pages
+
+    # Fallback: Use PaddleOCR for scanned/image-only PDF
+    print(f"[LOADER] PDF text extraction: {total_text_length} characters - insufficient, starting PaddleOCR fallback")
+    
+    if not PYPODFIUM2_AVAILABLE:
+        print("[LOADER] pypdfium2 not available, cannot render PDF for OCR")
+        return pages
+    
+    try:
+        ocr = _get_paddleocr()
+    except Exception as e:
+        print(f"[LOADER] Failed to initialize PaddleOCR: {e}")
+        return pages
+
+    ocr_pages = []
+    for page_number, page_text in extracted_pages:
+        if page_text:
+            # Page already has text, use it
+            ocr_pages.append({
+                "text": page_text,
+                "page": page_number,
+                "source": source_path.name,
+                "document_type": "pdf"
+            })
+        else:
+            # Page has no text, run OCR
+            print(f"[LOADER] OCR page {page_number}/{len(extracted_pages)}")
+            ocr_text = _ocr_pdf_page(pdf_path, page_number)
+            if ocr_text and ocr_text.strip():
+                ocr_pages.append({
+                    "text": ocr_text.strip(),
+                    "page": page_number,
+                    "source": source_path.name,
+                    "document_type": "pdf"
+                })
+                print(f"[LOADER] OCR page {page_number}: extracted {len(ocr_text)} characters")
+            else:
+                print(f"[LOADER] OCR page {page_number}: no text extracted")
+
+    total_ocr_chars = sum(len(p["text"]) for p in ocr_pages)
+    print(f"[LOADER] PaddleOCR extracted {total_ocr_chars} characters from {len(ocr_pages)} pages")
+    
+    return ocr_pages
 
 
 def load_docx_pages(docx_path: str) -> List[Dict]:
