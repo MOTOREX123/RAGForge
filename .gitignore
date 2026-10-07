@@ -10,3 +10,6 @@ vectorstore/
 node_modules/
 dist/
 data/
+
+# Evaluation outputs
+tests/*_results.json
