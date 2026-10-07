@@ -4,12 +4,16 @@ uvicorn==0.38.0
 faiss-cpu
 numpy
 pypdf
+python-docx
+python-multipart
 
 sentence-transformers
 torch
 transformers
 
+rank-bm25
+langchain-text-splitters
+
 requests
 python-dotenv
-
 google-genai

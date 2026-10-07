@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -39,6 +39,7 @@ from utils.context_selector import select_context
 
 from utils.conversation import ConversationMemory
 from utils.query_resolver import resolve_query
+from utils.document_processor import process_document, get_document_list, delete_document as delete_document_util
 
 
 # ==========================================================
@@ -130,6 +131,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -469,28 +472,89 @@ def chat(request: ChatRequest):
 
 
 # ==========================================================
-# PLACEHOLDER ENDPOINTS (honest 501s — no fake data)
+# DOCUMENT MANAGEMENT ENDPOINTS
 # ==========================================================
 
 @app.get("/api/documents")
 def list_documents():
-    raise HTTPException(
-        status_code=501,
-        detail="Document listing is not implemented yet.",
-    )
+    vector_db = getattr(app.state, "vector_db", None)
+    if vector_db is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store is not loaded. Server may still be starting up.",
+        )
+
+    try:
+        documents = get_document_list(vector_db)
+        return {"documents": documents}
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list documents: {exc}",
+        ) from exc
 
 
 @app.post("/api/upload")
-def upload_document():
-    raise HTTPException(
-        status_code=501,
-        detail="Document upload is not implemented yet.",
-    )
+async def upload_document(file: UploadFile = File(...)):
+    vector_db = getattr(app.state, "vector_db", None)
+    if vector_db is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store is not loaded. Server may still be starting up.",
+        )
+
+    # Read file content
+    file_content = await file.read()
+    if not file_content:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty.",
+        )
+
+    try:
+        result = process_document(
+            file_content=file_content,
+            filename=file.filename,
+            vectorstore=vector_db,
+            vectorstore_folder=str(VECTORSTORE_FOLDER)
+        )
+        return result
+    except ValueError as exc:
+        # User-facing errors (unsupported type, empty document, etc.)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ImportError as exc:
+        # Missing dependency for file type
+        raise HTTPException(
+            status_code=501,
+            detail=f"File type not supported: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document processing failed: {exc}",
+        ) from exc
 
 
-@app.delete("/api/documents/{document_id}")
-def delete_document(document_id: str):
-    raise HTTPException(
-        status_code=501,
-        detail=f"Document deletion is not implemented yet (id={document_id}).",
-    )
+@app.delete("/api/documents/{filename}")
+def delete_document(filename: str):
+    vector_db = getattr(app.state, "vector_db", None)
+    if vector_db is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Vector store is not loaded. Server may still be starting up.",
+        )
+
+    try:
+        result = delete_document_util(
+            filename=filename,
+            vectorstore=vector_db,
+            vectorstore_folder=str(VECTORSTORE_FOLDER)
+        )
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document deletion failed: {exc}",
+        ) from exc

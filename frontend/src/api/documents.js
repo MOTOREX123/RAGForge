@@ -11,7 +11,7 @@ import { apiClient } from "./client";
  * @returns {Promise<import('./types').DocumentEntry[]>}
  */
 export function listDocuments() {
-  return apiClient.get("/api/documents");
+  return apiClient.get("/api/documents").then((response) => response.documents || []);
 }
 
 /**

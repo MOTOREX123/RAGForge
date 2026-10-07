@@ -1,30 +1,78 @@
-const SUGGESTIONS = [
-  "What is overfitting?",
-  "Summarize the key ideas behind agentic AI.",
-  "What's the latest stable Python version?",
+import { FileText, Search, GitCompare, Lightbulb, MessageSquare } from "lucide-react";
+
+const EXAMPLE_PROMPTS = [
+  {
+    label: "Summarize the deployment runbook",
+    description: "Get a concise overview with citations",
+  },
+  {
+    label: "What changed in the v2 API?",
+    description: "Extract key changes from changelogs",
+  },
+  {
+    label: "Find the retry policy for failed jobs",
+    description: "Search for specific configuration details",
+  },
+  {
+    label: "Explain the rollback sequence",
+    description: "Get step-by-step procedures with sources",
+  },
 ];
 
-export function EmptyState({ onSuggestion }) {
+export function EmptyState({ onSuggestion, retrievalConfidence, chunksRetrieved }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <h1 className="font-display text-2xl text-ink">
-        Ask something, cite everything.
+    <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+      <div className="mb-4">
+        <img
+          src="/assets/ragforge-logo.png"
+          alt="RAGForge"
+          className="mx-auto w-18 h-18"
+        />
+      </div>
+      <h1 className="font-display text-xl font-semibold text-ink">
+        Ask your knowledge base
       </h1>
-      <p className="mt-2 max-w-sm text-sm text-ink-dim">
-        Questions about your documents are answered with page-level
-        citations. Time-sensitive questions are routed to the web instead.
+      <p className="mt-1.5 max-w-xl text-sm text-ink-muted leading-relaxed">
+        Search across indexed documents with grounded answers and traceable context.
       </p>
-      <div className="mt-6 flex flex-col gap-2">
-        {SUGGESTIONS.map((text) => (
-          <button
-            key={text}
-            type="button"
-            onClick={() => onSuggestion(text)}
-            className="rounded border border-line px-3 py-2 text-left text-sm text-ink-dim transition-colors hover:border-brass/40 hover:text-ink"
-          >
-            {text}
-          </button>
-        ))}
+
+      <div className="mt-5 w-full max-w-xl">
+        <p className="mb-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-ink-muted">
+          Example prompts
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {EXAMPLE_PROMPTS.map(({ label, description }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => onSuggestion(label)}
+              className="group relative rounded-lg border border-line bg-surface p-3 text-left transition-colors hover:border-purple/40 hover:bg-raised hover:text-ink"
+            >
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-purple-bg text-purple">
+                  <MessageSquare size={16} strokeWidth={2} />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-ink group-hover:text-purple text-sm leading-snug">
+                    {label}
+                  </p>
+                  <p className="text-[10px] text-ink-muted mt-0.5">{description}</p>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5 flex items-center justify-center gap-4 text-[10px] text-ink-muted">
+        <span className="flex items-center gap-1.5">
+          <FileText size={11} />
+          Local RAG (Ollama)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Search size={11} />
+          Web Search (Gemini)
+        </span>
       </div>
     </div>
   );

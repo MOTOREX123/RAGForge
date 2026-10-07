@@ -14,6 +14,12 @@
  * @property {number|null} page
  * @property {number|null} score
  * @property {string|null} url
+ * @property {string} [chunk] - Retrieved text chunk (for document citations)
+ * @property {Object} [metadata] - Additional metadata
+ * @property {number} [metadata.chunkIndex]
+ * @property {string} [metadata.embeddingModel]
+ * @property {number} [metadata.faissScore]
+ * @property {number} [metadata.hybridScore]
  *
  * @typedef {Object} ChatResponse
  * @property {string} answer
@@ -33,6 +39,15 @@
  * @property {string} [model]
  * @property {Citation[]} [citations]
  * @property {boolean} [isError]
+ * @property {string} [conversationId]
+ * @property {number} [timestamp]
+ *
+ * @typedef {Object} Conversation
+ * @property {string} id
+ * @property {string} title
+ * @property {ChatMessage[]} messages
+ * @property {number} createdAt
+ * @property {number} updatedAt
  *
  * @typedef {Object} DocumentEntry
  * @property {string} id

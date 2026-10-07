@@ -3,7 +3,7 @@ import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
 import { EmptyState } from "./EmptyState";
 
-export function MessageList({ messages, isLoading, onRegenerate, onSuggestion }) {
+export function MessageList({ messages, isLoading, onRegenerate, onRetry, onSuggestion, retrievalConfidence, chunksRetrieved }) {
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -17,13 +17,16 @@ export function MessageList({ messages, isLoading, onRegenerate, onSuggestion })
   const lastAssistantId = [...messages].reverse().find((m) => m.role === "assistant")?.id;
 
   return (
-    <div className="mx-auto flex w-full max-w-prose flex-1 flex-col gap-5 overflow-y-auto px-4 py-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
       {messages.map((message) => (
         <MessageBubble
           key={message.id}
           message={message}
           onRegenerate={onRegenerate}
+          onRetry={onRetry}
           isLastAssistant={message.id === lastAssistantId && !isLoading}
+          retrievalConfidence={retrievalConfidence}
+          chunksRetrieved={chunksRetrieved}
         />
       ))}
       {isLoading && <TypingIndicator />}

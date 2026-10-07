@@ -10,14 +10,14 @@ const ROUTE_CONFIG = {
   local: {
     label: "Local documents",
     icon: FileText,
-    dot: "bg-brass",
-    text: "text-brass",
+    dot: "bg-purple",
+    text: "text-purple",
   },
   web: {
     label: "Web search",
     icon: Globe,
-    dot: "bg-teal",
-    text: "text-teal",
+    dot: "bg-green",
+    text: "text-green",
   },
   general: {
     label: "General chat",
@@ -44,13 +44,13 @@ export function RouteModelBadge({ route, provider, model }) {
   const providerLabel = PROVIDER_LABELS[provider] || provider;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-      <span className={`inline-flex items-center gap-1.5 ${config.text}`}>
-        <Icon size={13} strokeWidth={2} />
+    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px]">
+      <span className={`inline-flex items-center gap-1 ${config.text}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
         {config.label}
       </span>
       {model && (
-        <span className="font-mono text-ink-dim">
+        <span className="font-mono text-ink-muted">
           {model}
           {providerLabel ? ` · ${providerLabel}` : ""}
         </span>

@@ -7,22 +7,23 @@
  * Web citation:
  * [1] webpage title
  */
-export function CitationChip({ citation }) {
+export function CitationChip({ citation, onClick }) {
   const isWeb = citation.type === "web";
 
-  const className =
-    "inline-flex max-w-full items-center gap-1.5 rounded border " +
-    "border-paper-ink/10 bg-paper px-2 py-1 text-xs text-paper-ink";
-
   return (
-    <span className={className}>
+    <button
+      type="button"
+      onClick={() => onClick?.(citation)}
+      className="inline-flex max-w-full items-center gap-1.5 rounded border border-line bg-raised px-2 py-1 text-[10px] text-ink transition-colors hover:bg-surface hover:border-purple/50 hover:text-purple focus:outline-none focus:ring-2 focus:ring-purple/50"
+      aria-label={`View source: ${citation.source}`}
+    >
       {/* Citation number */}
-      <span className="font-mono tabular-nums font-medium shrink-0">
+      <span className="font-mono tabular-nums font-medium shrink-0 text-purple">
         [{citation.id}]
       </span>
 
       {/* Source / filename */}
-      <span className="truncate">
+      <span className="truncate max-w-[180px]">
         {citation.source}
       </span>
 
@@ -30,7 +31,7 @@ export function CitationChip({ citation }) {
       {!isWeb &&
         citation.page !== null &&
         citation.page !== undefined && (
-          <span className="whitespace-nowrap">
+          <span className="whitespace-nowrap text-ink-muted">
             · p.{citation.page}
           </span>
         )}
@@ -39,10 +40,10 @@ export function CitationChip({ citation }) {
       {!isWeb &&
         citation.score !== null &&
         citation.score !== undefined && (
-          <span className="whitespace-nowrap">
-            · score {Number(citation.score).toFixed(2)}
+          <span className="whitespace-nowrap text-ink-muted">
+            · {(citation.score * 100).toFixed(0)}%
           </span>
         )}
-    </span>
+    </button>
   );
 }

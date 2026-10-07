@@ -2,7 +2,7 @@ import requests
 
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL_NAME = "gemma3:4b"
+MODEL_NAME = "gemma2:2b"
 
 
 def generate_ollama_answer(
