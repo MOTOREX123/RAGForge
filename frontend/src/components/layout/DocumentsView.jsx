@@ -3,6 +3,7 @@ import { DocumentRow } from "../documents/DocumentRow";
 import { UploadButton } from "../documents/UploadButton";
 import { Search, Filter, Loader2, Download, Trash2, MoreHorizontal, FileText } from "lucide-react";
 import { useState } from "react";
+import { useToast } from "../../context/ToastContext";
 
 const STATUS_FILTERS = [
   { id: "all", label: "All" },
@@ -13,9 +14,14 @@ const STATUS_FILTERS = [
 
 export function DocumentsView() {
   const { documents, status, uploadError, upload, remove } = useDocuments();
+  const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showMenuFor, setShowMenuFor] = useState(null);
+
+  const handleUploadSuccess = () => {
+    addToast("Document uploaded successfully", "success");
+  };
 
   const filteredDocuments = documents
     .filter((doc) => {
@@ -28,14 +34,14 @@ export function DocumentsView() {
       return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
     });
 
-  const handleMenuClick = (e, docId) => {
+  const handleMenuClick = (e, filename) => {
     e.stopPropagation();
-    setShowMenuFor(showMenuFor === docId ? null : docId);
+    setShowMenuFor(showMenuFor === filename ? null : filename);
   };
 
-  const handleDelete = (docId) => {
-    if (confirm("Delete this document? This action cannot be undone.")) {
-      remove(docId);
+  const handleDelete = (filename) => {
+    if (confirm(`Delete "${filename}"? This action cannot be undone.`)) {
+      remove(filename);
     }
     setShowMenuFor(null);
   };
@@ -61,7 +67,7 @@ export function DocumentsView() {
               <p className="text-[11px] text-ink-muted">Manage your knowledge base</p>
             </div>
           </div>
-          <UploadButton onUpload={upload} disabled={status === "unavailable"} />
+          <UploadButton onUpload={upload} disabled={status === "unavailable"} variant="primary" onSuccess={handleUploadSuccess} />
         </div>
 
         {/* Search and filters */}
@@ -124,7 +130,7 @@ export function DocumentsView() {
         {status === "ready" && filteredDocuments.length === 0 && !searchQuery && (
           <div className="text-center py-8">
             <p className="text-ink-muted mb-3">No documents uploaded yet.</p>
-            <UploadButton onUpload={upload} disabled={status === "unavailable"} />
+<UploadButton onUpload={upload} disabled={status === "unavailable"} variant="primary" onSuccess={handleUploadSuccess} />
           </div>
         )}
 
@@ -132,13 +138,13 @@ export function DocumentsView() {
           <div className="space-y-1.5">
             {filteredDocuments.map((doc) => (
               <DocumentRowWithMenu
-                key={doc.id}
+                key={doc.filename}
                 document={doc}
                 onDelete={remove}
-                showMenu={showMenuFor === doc.id}
-                onMenuClick={(e) => handleMenuClick(e, doc.id)}
+                showMenu={showMenuFor === doc.filename}
+                onMenuClick={(e) => handleMenuClick(e, doc.filename)}
                 onDownload={() => handleDownload(doc)}
-                onDeleteConfirm={() => handleDelete(doc.id)}
+                onDeleteConfirm={() => handleDelete(doc.filename)}
               />
             ))}
           </div>
@@ -174,7 +180,7 @@ function DocumentRowWithMenu({ document, onDelete, showMenu, onMenuClick, onDown
           <div className="flex items-center gap-2 mt-0.5">
             <span className="font-mono text-[10px] text-ink-muted">
               {document.type?.toUpperCase()}
-              {document.pages != null ? ` · ${document.pages}p` : ""}
+              {Array.isArray(document.pages) && document.pages.length > 0 ? ` · ${document.pages.length}p` : document.pages != null ? ` · ${document.pages}p` : ""}
             </span>
             <StatusBadge status={document.status} />
           </div>

@@ -88,7 +88,7 @@ export function AnalyticsView() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto max-w-5xl space-y-4">
+        <div className="w-full space-y-4">
           {/* Demo Notice */}
           <div className="rounded-lg border border-purple/30 bg-purple-bg p-3">
             <div className="flex items-start gap-2.5">

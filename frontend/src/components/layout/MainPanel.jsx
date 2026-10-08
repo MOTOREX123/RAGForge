@@ -151,7 +151,7 @@ export function MainPanel({ onOpenSidebar }) {
 
             {/* Chat Header (Empty State Area) */}
             <div className="px-4 py-5 border-b border-line">
-              <div className="max-w-3xl mx-auto">
+              <div className="w-full">
                 <h1 className="font-display text-xl font-semibold text-ink">
                   Ask your knowledge base
                 </h1>
@@ -192,7 +192,7 @@ export function MainPanel({ onOpenSidebar }) {
             {/* Pipeline status bar (visible during generation) */}
             {pipelineStatus && (
               <div className="border-t border-line px-4 py-2 bg-surface/50">
-                <RAGPipelineStatus status={pipelineStatus} className="max-w-3xl mx-auto" />
+                <RAGPipelineStatus status={pipelineStatus} className="w-full" />
               </div>
             )}
 

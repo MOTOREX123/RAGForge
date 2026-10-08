@@ -69,7 +69,7 @@ export function SettingsView() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto max-w-3xl space-y-6">
+        <div className="w-full space-y-6">
           {/* AI Providers */}
           <section className={sectionStyle}>
             <div className="flex items-center gap-2 mb-3">

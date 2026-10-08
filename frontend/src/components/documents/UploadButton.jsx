@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { Upload, Loader2, CheckCircle, X, AlertCircle } from "lucide-react";
+import { Upload, Loader2, CheckCircle, X, AlertCircle, Plus } from "lucide-react";
 
-export function UploadButton({ onUpload, disabled }) {
+export function UploadButton({ onUpload, disabled, variant = "primary", onSuccess }) {
   const inputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -33,6 +33,7 @@ export function UploadButton({ onUpload, disabled }) {
         setIsUploading(false);
         setUploadProgress(0);
       }, 1000);
+      onSuccess?.();
     } catch (err) {
       clearInterval(progressInterval);
       setError(err.message || "Upload failed");
@@ -116,7 +117,7 @@ export function UploadButton({ onUpload, disabled }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.docx"
+        accept=".pdf,.docx,.txt"
         className="hidden"
         onChange={handleChange}
       />
@@ -124,10 +125,16 @@ export function UploadButton({ onUpload, disabled }) {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={disabled || isUploading}
-        className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-line bg-surface/50 px-3 py-2 text-xs text-ink-dim transition-colors hover:border-purple/40 hover:bg-purple-bg hover:text-purple disabled:opacity-50"
+        className={`
+          flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
+          ${variant === "primary"
+            ? "bg-purple text-white hover:bg-purple-dim hover:shadow-[0_0_12px_rgba(124,92,255,0.4)] disabled:opacity-50"
+            : "border border-dashed border-line bg-surface/50 text-ink-dim hover:border-purple/40 hover:bg-purple-bg hover:text-purple disabled:opacity-50"
+          }
+        `}
       >
-        <Upload size={13} />
-        Upload document
+        {variant === "primary" ? <Plus size={13} /> : <Upload size={13} />}
+        {variant === "primary" ? "Add Document" : "Upload document"}
       </button>
     </>
   );

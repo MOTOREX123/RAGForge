@@ -1,4 +1,4 @@
-from utils.ollama_llm import generate_general_answer
+from utils.ollama_llm import generate_answer_with_fallback
 
 
 def resolve_query(
@@ -91,12 +91,15 @@ What are the main layers of a convolutional neural network?
 Now resolve the latest question.
 """
 
-    result = generate_general_answer(prompt)
-
-    if not result:
+    try:
+        answer, _, _ = generate_answer_with_fallback(prompt, context=None)
+    except Exception:
         return question
 
-    resolved_query = result.strip()
+    if not answer:
+        return question
+
+    resolved_query = answer.strip()
 
     if not resolved_query:
         return question

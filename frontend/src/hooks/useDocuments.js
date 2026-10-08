@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listDocuments, uploadDocument, deleteDocument } from "../api/documents";
 import { ApiError } from "../api/client";
+import { useToast } from "../context/ToastContext";
 
 /**
  * Manages the Documents sidebar section. The backend endpoints are
@@ -10,6 +11,7 @@ import { ApiError } from "../api/client";
  * isn't wired up yet").
  */
 export function useDocuments() {
+  const { addToast } = useToast();
   const [documents, setDocuments] = useState(/** @type {import('../api/types').DocumentEntry[]} */ ([]));
   const [status, setStatus] = useState("loading"); // loading | ready | unavailable | error
   const [uploadError, setUploadError] = useState(null);
@@ -47,15 +49,16 @@ export function useDocuments() {
     }
   }, [refresh]);
 
-  const remove = useCallback(async (documentId) => {
+  const remove = useCallback(async (filename) => {
     try {
-      await deleteDocument(documentId);
+      await deleteDocument(filename);
       await refresh();
-    } catch {
-      // Deletion is also a 501 placeholder right now; nothing to
-      // reconcile locally since we never optimistically removed it.
+      addToast(`Deleted "${filename}"`, "success");
+    } catch (error) {
+      const detail = error instanceof ApiError ? error.detail : error?.message || "Delete failed";
+      addToast(`Failed to delete "${filename}": ${detail}`, "error");
     }
-  }, [refresh]);
+  }, [refresh, addToast]);
 
   return { documents, status, uploadError, upload, remove };
 }

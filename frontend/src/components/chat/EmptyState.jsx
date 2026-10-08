@@ -1,4 +1,5 @@
 import { FileText, Search, GitCompare, Lightbulb, MessageSquare } from "lucide-react";
+import { BotAvatar } from "./BotAvatar";
 
 const EXAMPLE_PROMPTS = [
   {
@@ -22,11 +23,12 @@ const EXAMPLE_PROMPTS = [
 export function EmptyState({ onSuggestion, retrievalConfidence, chunksRetrieved }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col items-center gap-3">
+        <BotAvatar state="idle" size="md" className="w-16 h-16" />
         <img
           src="/assets/ragforge-logo.png"
           alt="RAGForge"
-          className="mx-auto w-18 h-18"
+          className="mx-auto w-16 h-16 opacity-60"
         />
       </div>
       <h1 className="font-display text-xl font-semibold text-ink">

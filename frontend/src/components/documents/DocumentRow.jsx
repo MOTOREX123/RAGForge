@@ -39,7 +39,7 @@ export function DocumentRow({ document, onDelete }) {
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className="font-mono text-[10px] text-ink-muted">
             {document.type?.toUpperCase()}
-            {document.pages != null ? ` · ${document.pages}p` : ""}
+            {Array.isArray(document.pages) && document.pages.length > 0 ? ` · ${document.pages.length}p` : document.pages != null ? ` · ${document.pages}p` : ""}
           </span>
           <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium ${STATUS_STYLE[document.status] || "bg-line text-ink-muted"}`}>
             {document.chunks != null ? (

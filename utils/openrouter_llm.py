@@ -1,21 +1,37 @@
+import os
 import requests
 
-from utils.openrouter_llm import generate_openrouter_answer
+from config import OPENROUTER_API_KEY
+
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_OPENROUTER_MODEL = "meta-llama/llama-3.1-8b-instruct"
 
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL_NAME = "gemma2:2b"
+def _get_openrouter_model() -> str:
+    return os.getenv("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
 
 
-def generate_ollama_answer(
+def generate_openrouter_answer(
     question: str,
-    context: str
-) -> str:
+    context: str | None = None
+) -> tuple[str, str]:
     """
-    Generate an answer using Ollama with retrieved document context.
-    """
+    Generate an answer using OpenRouter.
 
-    prompt = f"""
+    Args:
+        question: The user's question.
+        context: Optional retrieved document context for grounded answers.
+
+    Returns:
+        Tuple of (answer, model_name_used)
+    """
+    if not OPENROUTER_API_KEY or not OPENROUTER_API_KEY.strip():
+        raise ValueError("OPENROUTER_API_KEY is not set")
+
+    model = _get_openrouter_model()
+
+    if context:
+        prompt = f"""
 You are an AI assistant inside a Retrieval-Augmented Generation system.
 
 Answer the user's question using ONLY the provided context.
@@ -97,94 +113,8 @@ USER QUESTION:
 
 ANSWER:
 """
-
-    try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": MODEL_NAME,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                "stream": False,
-                "options": {
-                    "temperature": 0.2,
-                    "num_predict": 512
-                }
-            },
-            timeout=30
-        )
-
-        response.raise_for_status()
-
-        data = response.json()
-
-        return data["message"]["content"]
-
-    except requests.RequestException as e:
-        print(f"Ollama request failed: {e}")
-
-        if hasattr(e, "response") and e.response is not None:
-            print(f"Ollama response: {e.response.text}")
-
-        raise
-
-
-def _try_ollama_with_context(question: str, context: str) -> str:
-    """Try to generate answer using Ollama with context."""
-    return generate_ollama_answer(question, context)
-
-
-def _try_ollama_general(question: str) -> str:
-    """Try to generate general answer using Ollama."""
-    return generate_general_answer(question)
-
-
-def generate_answer_with_fallback(
-    question: str,
-    context: str | None = None
-) -> tuple[str, str, str]:
-    """
-    Generate an answer with Ollama -> OpenRouter fallback.
-
-    Args:
-        question: The user's question.
-        context: Optional retrieved document context for grounded answers.
-
-    Returns:
-        Tuple of (answer, provider, model)
-        provider: "ollama" or "openrouter"
-    """
-    # Try Ollama first
-    ollama_error = None
-    try:
-        if context:
-            answer = _try_ollama_with_context(question, context)
-        else:
-            answer = _try_ollama_general(question)
-        return answer, "ollama", MODEL_NAME
-    except requests.RequestException as e:
-        ollama_error = e
-        print(f"[LLM] Ollama unavailable, falling back to OpenRouter: {e}")
-
-    # Fallback to OpenRouter
-    try:
-        answer, model = generate_openrouter_answer(question, context)
-        return answer, "openrouter", model
-    except Exception as e:
-        print(f"[LLM] OpenRouter also failed: {e}")
-        raise RuntimeError(f"Both Ollama and OpenRouter failed. Ollama: {ollama_error}. OpenRouter: {e}") from e
-
-
-def generate_general_answer(question: str) -> str:
-    """
-    Generate an answer using Ollama without document retrieval.
-    """
-
-    prompt = f"""
+    else:
+        prompt = f"""
 You are a helpful AI assistant.
 
 Answer the user's question using your general knowledge.
@@ -199,7 +129,6 @@ IMPORTANT RULES:
 6. Keep the answer concise unless more detail is useful.
 
 
-
 USER QUESTION:
 {question}
 
@@ -208,34 +137,38 @@ ANSWER:
 
     try:
         response = requests.post(
-            OLLAMA_URL,
+            OPENROUTER_URL,
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY.strip()}",
+                "Content-Type": "application/json",
+            },
             json={
-                "model": MODEL_NAME,
+                "model": model,
                 "messages": [
                     {
                         "role": "user",
                         "content": prompt
                     }
                 ],
-                "stream": False,
-                "options": {
-                    "temperature": 0.2,
-                    "num_predict": 512
-                }
+                "temperature": 0.2,
+                "max_tokens": 512
             },
-            timeout=30
+            timeout=120
         )
 
         response.raise_for_status()
 
-        data = response.json()
-
-        return data["message"]["content"]
-
     except requests.RequestException as e:
-        print(f"Ollama request failed: {e}")
+        print(f"OpenRouter request failed: {e}")
 
         if hasattr(e, "response") and e.response is not None:
-            print(f"Ollama response: {e.response.text}")
+            print(f"OpenRouter response: {e.response.text}")
 
         raise
+
+    data = response.json()
+    answer = data["choices"][0]["message"]["content"]
+
+    used_model = data.get("model", model)
+
+    return answer, used_model

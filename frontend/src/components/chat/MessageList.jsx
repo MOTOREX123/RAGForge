@@ -17,7 +17,7 @@ export function MessageList({ messages, isLoading, onRegenerate, onRetry, onSugg
   const lastAssistantId = [...messages].reverse().find((m) => m.role === "assistant")?.id;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+    <div className="flex w-full flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
       {messages.map((message) => (
         <MessageBubble
           key={message.id}

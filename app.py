@@ -25,8 +25,7 @@ from pydantic import BaseModel, Field
 from utils.vectorstore import VectorStore
 from utils.router import route_query
 from utils.ollama_llm import (
-    generate_ollama_answer,
-    generate_general_answer,
+    generate_answer_with_fallback,
     OLLAMA_URL,
     MODEL_NAME
 )
@@ -164,7 +163,7 @@ class Citation(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     route: Literal["local", "web","general"]
-    provider: Literal["ollama", "gemini"]
+    provider: Literal["ollama", "openrouter", "gemini"]
     model: str
     citations: list[Citation]
 
@@ -361,17 +360,17 @@ def chat(request: ChatRequest):
         context = build_context(selected_results)
 
         # --------------------------------------------------------
-        # 6. Generate Answer
+        # 6. Generate Answer (with Ollama -> OpenRouter fallback)
         # --------------------------------------------------------
         try:
-            answer = generate_ollama_answer(
+            answer, provider, model = generate_answer_with_fallback(
                 resolved_message,
                 context
             )
-        except requests.RequestException as exc:
+        except RuntimeError as exc:
             raise HTTPException(
                 status_code=503,
-                detail=f"Ollama is unavailable: {exc}",
+                detail=str(exc),
             ) from exc
         except Exception as exc:
             raise HTTPException(
@@ -397,8 +396,8 @@ def chat(request: ChatRequest):
         return ChatResponse(
             answer=answer,
             route="local",
-            provider="ollama",
-            model=MODEL_NAME,
+            provider=provider,
+            model=model,
             citations=local_results_to_citations(selected_results),
         )
 
@@ -408,12 +407,15 @@ def chat(request: ChatRequest):
     if route["source"] == "general":
 
         try:
-            answer = generate_general_answer(resolved_message)
+            answer, provider, model = generate_answer_with_fallback(
+                resolved_message,
+                context=None
+            )
 
-        except requests.RequestException as exc:
+        except RuntimeError as exc:
             raise HTTPException(
                 status_code=503,
-                detail=f"Ollama is unavailable: {exc}",
+                detail=str(exc),
             ) from exc
         
         except Exception as exc:
@@ -435,8 +437,8 @@ def chat(request: ChatRequest):
         return ChatResponse(
             answer=answer,
             route="general",
-            provider="ollama",
-            model=MODEL_NAME,
+            provider=provider,
+            model=model,
             citations=[],
         )
 

@@ -24,8 +24,8 @@ export function uploadDocument(file) {
 }
 
 /**
- * @param {string} documentId
+ * @param {string} filename
  */
-export function deleteDocument(documentId) {
-  return apiClient.delete(`/api/documents/${encodeURIComponent(documentId)}`);
+export function deleteDocument(filename) {
+  return apiClient.delete(`/api/documents/${encodeURIComponent(filename)}`);
 }

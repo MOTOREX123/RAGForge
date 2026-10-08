@@ -1,0 +1,10 @@
+============================================================
+LOADING RAG SYSTEM
+============================================================
+Loading vector store...
+Loaded chunks: 3302
+Embedding dimension: 384
+Building hybrid retriever...
+Hybrid retriever ready.
+Loading reranker...
+Loading reranker model: cross-encoder/ms-marco-MiniLM-L-6-v2

@@ -16,12 +16,14 @@ import {
   MoreHorizontal,
   Database,
   ExternalLink,
+  Home,
 } from "lucide-react";
 import { useConversation } from "../../context/ConversationContext";
 import { fetchHealth } from "../../api/chat";
 import { useToast } from "../../context/ToastContext";
 
 const NAV_ITEMS = [
+  { id: "chats", label: "Home", icon: Home },
   { id: "documents", label: "Documents", icon: FolderOpen },
   { id: "settings", label: "Settings", icon: Settings },
 ];

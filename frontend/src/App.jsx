@@ -35,17 +35,8 @@ function AppLayout() {
       <Sidebar isOpen={sidebarOpen} onClose={handleSidebarClose} />
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0 lg:flex-row">
+      <div className="flex-1 flex flex-col min-w-0">
         <MainPanel onOpenSidebar={() => setSidebarOpen(true)} />
-
-        {/* Desktop Sources Panel */}
-        <div className="hidden lg:block w-[340px] shrink-0">
-          <SourcesPanel
-            citations={lastCitations}
-            isOpen={lastCitations.length > 0}
-            onClose={() => setSourcesOpen(false)}
-          />
-        </div>
 
         {/* Mobile Sources Button */}
         <div className="lg:hidden fixed bottom-4 right-4 z-40" aria-label="Open sources">

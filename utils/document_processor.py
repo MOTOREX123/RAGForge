@@ -46,6 +46,13 @@ def process_document(
         # Step 1: Load document pages
         pages = load_document_pages(tmp_path)
         if not pages:
+            # Check if it's a PDF - if so, it might be scanned/image-only
+            if suffix == ".pdf":
+                raise ValueError(
+                    "Document contains no extractable text. "
+                    "This may be a scanned/image-only PDF. "
+                    "Only text-based PDFs, DOCX, and TXT files are supported."
+                )
             raise ValueError("Document contains no extractable text.")
 
         # Override source with original filename in all pages
